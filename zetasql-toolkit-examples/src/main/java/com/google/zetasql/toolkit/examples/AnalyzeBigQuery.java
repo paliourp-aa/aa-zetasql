@@ -31,11 +31,11 @@ public class AnalyzeBigQuery {
 
   public static void main(String[] args) {
     // Analyzing a query that uses bigquery-public-data tables
-    String query =
-        "DECLARE x STRING DEFAULT 'ASD';" +
-        "SET x = 'ASD2';" +
-        "INSERT INTO `bigquery-public-data.samples.wikipedia` (title) VALUES ('random title');\n"
-            + "SELECT title, language FROM `bigquery-public-data.samples.wikipedia` WHERE title = 'random title';";
+    String query = "SELECT * FROM financialreporting-223818.reporting_model.income_expenses_2";
+    //    "DECLARE x STRING DEFAULT 'ASD';" +
+    //    "SET x = 'ASD2';" +
+    //    "INSERT INTO `bigquery-public-data.samples.wikipedia` (title) VALUES ('random title');\n"
+    //        + "SELECT title, language FROM `bigquery-public-data.samples.wikipedia` WHERE title = 'random title';";
 
     // Step 1: Create a BigQueryCatalog
     // In this case, we provide the project id where queries are assumed to be running. The catalog
@@ -43,14 +43,14 @@ public class AnalyzeBigQuery {
     // resources.
     // You can also provide your own BigQuery API client or a custom implementation of
     // BigQueryResourceProvider.
-    BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI("bigquery-public-data");
+    BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI("financialreporting-223818");
 
     // Step 2: Add tables to the catalog before analyzing
     // BigQueryCatalog.addTable will fetch the table metadata and
     // create the table in the catalog.
     // Just as we can add tables and views; we can also add UDFs, TVFs and Procedures from BigQuery.
     // See also: BigQueryCatalog.addAllTablesInDataset and BigQueryCatalog.addAllTablesInProject
-    catalog.addTable("bigquery-public-data.samples.wikipedia");
+    catalog.addTable("financialreporting-223818.reporting_model.income_expenses_2");
 
     // Step 3: Define the LanguageOptions and AnalyzerOptions to configure the ZetaSQL analyzer
 

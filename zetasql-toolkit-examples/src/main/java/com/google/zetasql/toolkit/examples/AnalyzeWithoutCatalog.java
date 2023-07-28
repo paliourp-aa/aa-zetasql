@@ -22,6 +22,7 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import com.google.zetasql.toolkit.AnalyzedStatement;
 import com.google.zetasql.toolkit.ZetaSQLToolkitAnalyzer;
 import java.util.Iterator;
+import java.lang.System;
 
 /** Example showcasing the basic example of how to use the ZetaSQL analyzer using this toolkit */
 public class AnalyzeWithoutCatalog {

@@ -32,10 +32,11 @@ public class LoadTablesUsedInQuery {
 
   public static void main(String[] args) {
     String query =
-        "INSERT INTO `bigquery-public-data.samples.wikipedia` (title) VALUES ('random title');\n"
-            + "SELECT * FROM `bigquery-public-data.samples.wikipedia` WHERE title = 'random title';";
+    "SELECT * FROM financialreporting-223818.reporting_model.income_expenses_2";
+        // "INSERT INTO `bigquery-public-data.samples.wikipedia` (title) VALUES ('random title');\n"
+        //     + "SELECT * FROM `bigquery-public-data.samples.wikipedia` WHERE title = 'random title';";
 
-    BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI("bigquery-public-data");
+    BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI("financialreporting-223818");
 
     AnalyzerOptions options = new AnalyzerOptions();
     options.setLanguageOptions(BigQueryLanguageOptions.get());
