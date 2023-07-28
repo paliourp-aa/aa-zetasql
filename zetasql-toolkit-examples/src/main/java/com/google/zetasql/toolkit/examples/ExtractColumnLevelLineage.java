@@ -25,6 +25,10 @@ import com.google.zetasql.toolkit.options.BigQueryLanguageOptions;
 import com.google.zetasql.toolkit.tools.lineage.ColumnLineageExtractor;
 import com.google.zetasql.toolkit.tools.lineage.ColumnEntity;
 import com.google.zetasql.toolkit.tools.lineage.ColumnLineage;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -35,10 +39,18 @@ public class ExtractColumnLevelLineage {
     System.out.println("\nQuery:");
     System.out.println(query);
     System.out.println("\nLineage:");
+    
     lineageEntries.forEach(lineage -> {
       System.out.printf("%s.%s\n", lineage.target.table, lineage.target.name);
+      
       for (ColumnEntity parent : lineage.parents) {
         System.out.printf("\t\t<- %s.%s\n", parent.table, parent.name);
+        /* 
+        if (parent.table == "$union_all") {
+            
+        }
+        */
+        
       }
     });
     System.out.println();
@@ -47,7 +59,8 @@ public class ExtractColumnLevelLineage {
 
   private static void lineageForCreateTableAsSelectStatement(
       BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer) {
-    String query = "CREATE TABLE `project.dataset.table` AS\n"
+    String query = 
+      "CREATE TABLE `project.dataset.table` AS\n"
         + "SELECT\n"
         + "    concatted AS column_alias\n"
         + "FROM\n"
@@ -128,25 +141,49 @@ public class ExtractColumnLevelLineage {
     outputLineage(query, lineageEntries);
   }
 
+  private static void lineageForCustomStatement(BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer, String query) {
+    Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
+    ResolvedStatement statement = statementIterator.next().getResolvedStatement().get();
+
+    Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+    System.out.println("Extracted lineage");
+    outputLineage(query, lineageEntries);
+
+  }
+
   public static void main(String[] args) {
-    BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI("bigquery-public-data");
-    catalog.addTables(List.of(
-        "bigquery-public-data.samples.wikipedia",
-        "bigquery-public-data.samples.shakespeare"
-    ));
+    String projectId = "financialreporting-223818";
+    BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI(projectId);
+    List<String> project_tables = ListAllTables.listAllProjectTables(projectId);
+    catalog.addTables(project_tables);
+
+    // catalog.addTables(List.of(
+    //     "bigquery-public-data.samples.wikipedia",
+    //     "bigquery-public-data.samples.shakespeare"
+    // ));
 
     AnalyzerOptions options = new AnalyzerOptions();
     options.setLanguageOptions(BigQueryLanguageOptions.get());
 
     ZetaSQLToolkitAnalyzer analyzer = new ZetaSQLToolkitAnalyzer(options);
 
-    lineageForCreateTableAsSelectStatement(catalog, analyzer);
-    System.out.println("-----------------------------------");
-    lineageForInsertStatement(catalog, analyzer);
-    System.out.println("-----------------------------------");
-    lineageForUpdateStatement(catalog, analyzer);
-    System.out.println("-----------------------------------");
-    lineageForMergeStatement(catalog, analyzer);
+    Path fp = Path.of("../../resources/income_expenses_2.txt");
+    String query = "";
+    try {
+      query = Files.readString(fp);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    lineageForCustomStatement(catalog, analyzer, query);
+
+    // lineageForCreateTableAsSelectStatement(catalog, analyzer);
+    // System.out.println("-----------------------------------");
+    // lineageForInsertStatement(catalog, analyzer);
+    // System.out.println("-----------------------------------");
+    // lineageForUpdateStatement(catalog, analyzer);
+    // System.out.println("-----------------------------------");
+    // lineageForMergeStatement(catalog, analyzer);
   }
 
 }
