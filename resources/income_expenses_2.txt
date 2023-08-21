@@ -1,0 +1,203 @@
+CREATE TABLE `financialreporting-223818.javaapi_ds.temp_table` AS (
+WITH categories as(
+			SELECT 
+		CASE
+			WHEN s2.id is NULL AND s1.id is NULL and s0.id is NULL THEN c.id
+			WHEN s2.id is NULL AND s1.id is NULL THEN s0.id
+			WHEN s2.id is NULL THEN s1.id
+			ELSE s2.id
+		END as id,
+   	CASE
+			WHEN c.name is NULL AND s0.name is NULL and s1.name is NULL THEN s2.name
+			WHEN c.name is NULL AND s0.name is NULL THEN s1.name
+			WHEN c.name is NULL THEN s0.name
+			ELSE c.name 
+		END as cat_name,
+    CASE
+			WHEN s0.name is NULL and s1.name is NULL THEN NULL
+			WHEN s0.name is NULL THEN s1.name
+			ELSE s0.name 
+		END as s0_name,
+    CASE
+			WHEN c.name is NULL AND s0.name is NULL and s1.name is NULL THEN NULL
+			WHEN c.name is NULL AND s0.name is NULL THEN NULL
+			WHEN c.name is NULL THEN s2.name
+      ELSE s1.name
+		END as s1_name,
+    CASE
+			WHEN c.name is NULL AND s0.name is NULL and s1.name is NULL THEN NULL
+			WHEN c.name is NULL AND s0.name is NULL THEN NULL
+			WHEN c.name is NULL THEN NULL
+      ELSE s2.name
+		END as s2_name,
+    CASE
+			WHEN s2.id is NULL AND s1.id is NULL and s0.id is NULL THEN c.owner
+			WHEN s2.id is NULL AND s1.id is NULL THEN s0.owner
+			WHEN s2.id is NULL THEN s1.owner
+			ELSE s2.owner
+		END as owner
+	FROM  `financialreporting-223818.Transactions.transaction_categories` as c
+   INNER JOIN `financialreporting-223818.mappings.batch_mapping_transaction_categories` as bmc on c.id=bmc.Id and c.batch_id=bmc.batch_id
+		RIGHT JOIN `financialreporting-223818.Transactions.transaction_categories` as s0 on c.id=s0.Parent_fk and c.Parent_fk is null
+    INNER JOIN `financialreporting-223818.mappings.batch_mapping_transaction_categories` as bm0 on s0.id=bm0.Id and s0.batch_id=bm0.batch_id
+		RIGHT JOIN `financialreporting-223818.Transactions.transaction_categories` as s1 on s0.id=s1.Parent_fk
+    INNER JOIN `financialreporting-223818.mappings.batch_mapping_transaction_categories` as bm1 on s1.id=bm1.Id and s1.batch_id=bm1.batch_id
+		RIGHT JOIN `financialreporting-223818.Transactions.transaction_categories` as s2 on s1.id=s2.Parent_fk
+    INNER JOIN `financialreporting-223818.mappings.batch_mapping_transaction_categories` as bm2 on s2.id=bm2.Id and s2.batch_id=bm2.batch_id
+
+),
+
+professionals as (
+select distinct eMail from `financialreporting-223818.mappings.employee_mappings`),
+
+net_invoice_cost as (
+select sum(tl.NetValue) as net_invoice,tl.Transaction_fk as Id
+from  `financialreporting-223818.Transactions.transaction_lines`  tl 
+INNER JOIN `financialreporting-223818.mappings.batch_mapping_transaction_lines` as bm on tl.id=bm.id  and bm.batch_id=tl.batch_id
+group by tl.Transaction_fk
+),
+
+transaction_transactionlines_production as(
+	select tl.Id as tl_id , tl.ProfessionalEmail,tl.ProfessionalId,t.description as TransactionDescription,
+		t.ReceiverName as Receiver ,
+		categories.cat_name as tl_transation_category ,
+		categories.s1_name as tl_Transaction_Subcategory_1 ,
+		categories.s0_name as tl_transaction_subcategory_0 ,
+		categories.s2_name as tl_Transaction_Subcategory_2 ,
+    categories.owner as category_owner,
+		tl.FinancialProjectName as FinancialProjectName ,
+		tl.EffectiveDate as tl_Effective_date ,
+		tl.TransactionTagName  ,
+		concat(tl.ProfessionalLastName,' ',tl.ProfessionalFirstName) as Tech_Professional ,
+		tl.NetValue*t.FxRate as NetValue ,
+        tl.VatValue*t.FxRate as VatValue,
+		am.eMail ,
+		ParticipatingEntityName as ParticipatingEntityName,
+		t.DocumentNo as DocumentNo,
+		t.IssuerName as Issuer,
+		t.IssueDate as t_Issue_Date,
+		t.IsExpense as t_Expense_or_Sale,
+		t.id as t_id,
+        t.TransactionType as TransactionType,
+        nic.net_invoice * t.FxRate as net_invoice,
+        t.OwnerName as Owner,
+        tl.FinancialProjectName as financial_project ,
+        IsPending as pending_transaction
+	from `financialreporting-223818.Transactions.transactions`  t
+ 	INNER JOIN `financialreporting-223818.mappings.batch_mapping_transactions` as bm on t.id=bm.id and bm.batch_id=t.batch_id
+  inner join `financialreporting-223818.Transactions.transaction_lines`  tl on t.Id = tl.Transaction_fk
+   INNER JOIN `financialreporting-223818.mappings.batch_mapping_transaction_lines` as bm1 on tl.id=bm1.id and bm1.batch_id=tl.batch_id
+  inner join net_invoice_cost nic on t.Id=nic.Id
+	inner join categories on categories.id=tl.TransactionCategory_fk
+  left join professionals as am on am.eMail = tl.ProfessionalEmail
+--    where bm.type='transactions' and bm.batch_id=t.batch_id and bm1.batch_id=tl.batch_id and bm1.type='transaction_lines'
+)
+
+
+select ProfessionalEmail as email, 
+cast(ProfessionalId as STRING) as id , 
+tt.Tech_Professional as name , 
+0 as payroll_year , 
+0 as payroll_month ,
+    tt.FinancialProjectName as FinancialProject  ,
+    t_Issue_Date as issue_date ,
+    tt.tl_Effective_date as effective_date,
+    tt.TransactionType,
+    tt.tl_transation_category as category,
+    tt.tl_transaction_subcategory_0 as subcategory0 ,
+    tt.tl_Transaction_Subcategory_1 as subcategory1 ,
+    tt.tl_Transaction_Subcategory_2 as subcategory2 ,
+    tt.category_owner,
+    tt.TransactionTagName ,
+    case when tt.t_Expense_or_Sale=1 then 'Expense' else 'Income' End as t_Expense_or_Sale ,
+    tt.DocumentNo as DocumentNo, TransactionDescription,
+    tt.Issuer , tt.Receiver , tt.Owner,
+    tt.ParticipatingEntityName as ParticipatingEntityName,
+    net_invoice,
+    CASE WHEN tt.NetValue=0 OR net_invoice=0 THEN 0 else ROUND((tt.NetValue/net_invoice),4) END as work_percentage ,
+    tt.NetValue as total_cost_percentage,
+    CASE WHEN tt.t_Expense_or_Sale = 0 AND TransactionType='Credit Note' THEN (-tt.NetValue)
+      WHEN tt.t_Expense_or_Sale = 1 AND TransactionType='Credit Note' THEN (tt.NetValue)
+      WHEN  tt.t_Expense_or_Sale = 0 THEN (tt.NetValue)
+     ELSE -tt.NetValue end as normalized_trans_value ,
+    CASE WHEN tt.t_Expense_or_Sale = 0 AND TransactionType='Credit Note' THEN (-tt.VatValue)
+      WHEN tt.t_Expense_or_Sale = 1 AND TransactionType='Credit Note' THEN (tt.VatValue)
+      WHEN  tt.t_Expense_or_Sale = 0 THEN (tt.VatValue)
+     ELSE -tt.VatValue end as normalized_vat_value ,
+    CASE WHEN tt.t_Expense_or_Sale = 0 AND TransactionType='Credit Note' THEN (-tt.VatValue-tt.NetValue)
+      WHEN tt.t_Expense_or_Sale = 1 AND TransactionType='Credit Note' THEN (tt.VatValue+tt.NetValue)
+      WHEN  tt.t_Expense_or_Sale = 0 THEN (tt.VatValue+tt.NetValue)
+     ELSE (-tt.VatValue-tt.NetValue) end as normalized_total_cost_value,
+     0 as total_working_days,
+     pending_transaction
+from transaction_transactionlines_production tt
+
+union all
+
+select ap.email , ap.id , ap.employee_name ,  ap.payroll_year , ap.payroll_month ,
+ap.engagement_name, 
+DATE(ap.payroll_year,ap.payroll_month ,1) , 
+DATE(ap.payroll_year,ap.payroll_month ,1) , 
+-- Management:
+-- OpEx-Management remuneration
+-- Administration:
+-- OpEx-Supporting functions cost
+-- The same is true on the "revenue" side. You have the mapping with the opposites already.
+-- Management: Μπασακίδης, Λιβάς, Δρακόπουλος, Τυχογιώργος, Μαζαράκος, Seatter
+-- Administration: Whoever has Admin as his project name in his jobcode in timesheets, eg. Agile Actors-Admin-AA
+--update the management team to get it from the mysql schema BU entities or from another 'management' table.
+case 
+  when ap.engagement_name like '%Admin%' 
+  or ap.engagement_name like '%Management%' 
+  or ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') 
+  or ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP') 
+  # ap.email in ('alexandros.basakidis@agileactors.com','dimitris.livas@agielactors.com','elias.drakopoulos@agileactors.com',
+  #   'george.tychogiorgos@agileactors.com','stamos.mazarakos@agileactors.com')  or ap.employee_name like '%Seatter Natalie%' 
+    then 'Non-Billable' 
+  else "Billable" end, 
+case when ap.engagement_name like '%Admin%' 
+  or ap.engagement_name like '%Management%' 
+  or ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') 
+  or ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP')
+# or ap.email in ('alexandros.basakidis@agileactors.com','dimitris.livas@agielactors.com','elias.drakopoulos@agileactors.com',
+#     'george.tychogiorgos@agileactors.com','stamos.mazarakos@agileactors.com') or ap.employee_name like '%Seatter Natalie%'
+     then 'Total Expenses' 
+  else 'Total Cost of revenue' end, 
+case when ap.engagement_name like '%Admin%' 
+  or ap.engagement_name like '%Management%' 
+  or ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') 
+  or ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP')
+# or ap.email in ('alexandros.basakidis@agileactors.com','dimitris.livas@agielactors.com','elias.drakopoulos@agileactors.com',
+#     'george.tychogiorgos@agileactors.com','stamos.mazarakos@agileactors.com')  or ap.employee_name like '%Seatter Natalie%' 
+    then 'OpEx' 
+  else 'Cost of revenue' end, 
+case when ap.engagement_name like '%Admin%' then 'Supporting functions cost' 
+     when ap.engagement_name like '%Management%'  then 'Management remuneration' 
+     when ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') then 'R&D'
+     when ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP') then 'SW tools'
+    # when ap.email in ('alexandros.basakidis@agileactors.com','dimitris.livas@agielactors.com','elias.drakopoulos@agileactors.com',
+    # 'george.tychogiorgos@agileactors.com','stamos.mazarakos@agileactors.com')  or ap.employee_name like '%Seatter Natalie%' then 'Management remuneration' 
+  else 'Salaries' end, 
+case when ap.engagement_name like '%Admin%' then 'Office' 
+    when ap.engagement_name like '%Management%'  then 'Mgt salaries' 
+    when ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') then 'Next.dot'
+    when ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP') then 'ERP'
+    # when ap.email in ('alexandros.basakidis@agileactors.com','dimitris.livas@agielactors.com','elias.drakopoulos@agileactors.com',
+    # 'george.tychogiorgos@agileactors.com','stamos.mazarakos@agileactors.com')  or ap.employee_name like '%Seatter Natalie%' then 'Mgt salaries' 
+  else 'All Salaries' end,
+"",
+""  , 
+"Expense"  , 
+"","",
+ap.entity , ""  , ap.entity  , 
+""  ,
+(- CAST(ap.total_cost AS FLOAT64))  , 
+CASE WHEN ap.work_percentage is null THEN 1 ELSE ap.work_percentage END as work_percentage, 
+CASE WHEN  ap.work_percentage is null THEN ap.total_cost ELSE (ap.total_cost * ap.work_percentage ) END  ,
+(- CAST(ap.total_cost AS FLOAT64) * ap.work_percentage) as normalized_trans_value , 
+0 ,
+(- CAST(ap.total_cost AS FLOAT64) * ap.work_percentage) ,project_duration/8 as total_working_days,
+null as pending_transaction
+from `financialreporting-223818.reporting_model.payroll_gross_split_engagement` ap 
+)
+;

@@ -1,0 +1,43 @@
+CREATE TABLE `financialreporting-223818.javaapi_ds.temp_table` AS (
+SELECT
+    EntryDate
+    , PROFID, PROFName
+    , SeniorityGroup, Seniority
+    , Project
+    , Customer, CustomerAccount
+    , ServiceType
+
+    , UtilizationType
+    , UtilizationPercent
+    , SalaryAllocationPercent
+    , CooperationType
+    , MonthlyGrossSalaryOriginal
+    , MonthlyGrossSalary
+    , DailyGrossSalary
+    , MonthlyGrossSalaryAllocation
+    , DailyGrossSalaryAllocation
+    , ProfessionalEntity
+    
+    , Rate, OvertimeRate
+    , IsAbsenceDay
+    , IsNonFullAbsenceDay
+    , FullAbsenceDays, NonFullAbsenceDays, TotalNonBillableAbsenceDays
+    , HolidayOvertimeHours, WeekEndOvertimeHours, FullAbsenceOvertimeHours
+    , WorkDays
+    , WorkDayOverWorkHours, WorkDayOvertimeHours, (WorkDayOverWorkHours + WorkDayOvertimeHours) WorkDayTotalOvertimeHours
+    , BillableAbsenceDays
+    , NonBillableInductionDays
+    , round(WorkDays * Rate, 2)  WorkValue
+    , round(WorkDayOverWorkHours * OvertimeRate, 2) OverWorkValue
+    , round(WorkDayOvertimeHours * OvertimeRate, 2) OverTimeValue
+    , round((WorkDayOverWorkHours + WorkDayOvertimeHours) * OvertimeRate, 2) TotalOvertimeValue
+    , round(BillableAbsenceDays * Rate, 2) BillableAbsenceValue
+
+    , round(WorkDays * Rate, 2)  -- WorkValue
+      + round(WorkDayOverWorkHours * OvertimeRate, 2)  -- OverWorkValue
+      + round(WorkDayOvertimeHours * OvertimeRate, 2)  -- OverTimeValue
+      + round(BillableAbsenceDays * Rate, 2)  -- BillableAbsenceValue
+      as TotalBillableValue
+FROM `financialreporting-223818.Profitability.actual_work_2_revenue`
+)
+;

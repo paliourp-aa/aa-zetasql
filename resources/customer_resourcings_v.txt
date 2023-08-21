@@ -1,0 +1,26 @@
+CREATE TABLE `financialreporting-223818.javaapi_ds.temp_table` AS (
+SELECT Cooperation_Type,
+PRF_ID, 
+Chapter,
+Seniority,
+Legal_Entity_Name,
+DATE( Hiring_Date) as Hiring_Date , 
+Customer_Rate_Config, 
+Customer, 
+Customer_Engagement_Entity, 
+Professional, 
+Professional_Status, 
+DATE(Date_Start) as Date_Start,
+DATE(Date_End) as Date_End,
+Resourcing_Status_Auto,
+cast( Salary_Allocation_Perc as FLOAT64) as Salary_Allocation_Perc,
+cast( Utilisation_Perc AS FLOAT64) as Utilisation_Perc,
+Engaged_as_Seniority,
+cast(MD_Adjusted_Rate_In_Currency as FLOAT64) as MD_Adjusted_Rate_In_Currency,
+Engaged_as_vs_Prof_seniority, 
+Engagement_Name,
+CAST(replace( Employee_gross_equivalent, ',', '') as FLOAT64) as Employee_gross_equivalent,
+knack_id, import_timestamp, batch_id
+FROM `financialreporting-223818.knack.customer_resourcings`
+)
+;

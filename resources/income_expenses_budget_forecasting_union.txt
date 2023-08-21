@@ -1,0 +1,4 @@
+CREATE TABLE `financialreporting-223818.javaapi_ds.temp_table` AS (
+SELECT * FROM `financialreporting-223818.reporting_model.income_expenses_budget_forecasting_union`
+)
+;

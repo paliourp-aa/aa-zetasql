@@ -26,7 +26,10 @@ import com.google.zetasql.toolkit.tools.lineage.ColumnLineageExtractor;
 import com.google.zetasql.toolkit.tools.lineage.ColumnEntity;
 import com.google.zetasql.toolkit.tools.lineage.ColumnLineage;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -34,14 +37,34 @@ import java.util.List;
 import java.util.Set;
 
 public class ExtractColumnLevelLineage {
-
   private static void outputLineage(String query, Set<ColumnLineage> lineageEntries) {
     System.out.println("\nQuery:");
     System.out.println(query);
     System.out.println("\nLineage:");
     
+    File file = new File("columns.txt");
+
+    try {
+      FileWriter fw = new FileWriter(file, false);
+      fw.write("");
+      fw.close();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    
     lineageEntries.forEach(lineage -> {
       System.out.printf("%s.%s\n", lineage.target.table, lineage.target.name);
+      
+      // writing column to columns file
+      try {
+        FileWriter fw = new FileWriter(file, true);
+        fw.write(lineage.target.name + "\n");
+        fw.close();
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
       
       for (ColumnEntity parent : lineage.parents) {
         System.out.printf("\t\t<- %s.%s\n", parent.table, parent.name);
@@ -167,7 +190,7 @@ public class ExtractColumnLevelLineage {
 
     ZetaSQLToolkitAnalyzer analyzer = new ZetaSQLToolkitAnalyzer(options);
 
-    Path fp = Path.of("../../resources/income_expenses_2.txt");
+    Path fp = Path.of("resources/income_expenses_2.txt");
     String query = "";
     try {
       query = Files.readString(fp);
