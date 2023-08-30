@@ -16,7 +16,10 @@
 
 package com.google.zetasql.toolkit.examples;
 
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.AnalyzerOptions;
+import com.google.zetasql.resolvedast.ResolvedColumn;
+import com.google.zetasql.resolvedast.ResolvedNodes;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import com.google.zetasql.toolkit.AnalyzedStatement;
 import com.google.zetasql.toolkit.ZetaSQLToolkitAnalyzer;
@@ -32,14 +35,19 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 public class ExtractColumnLevelLineage {
-  private static void outputLineage(String query, Set<ColumnLineage> lineageEntries) {
-    System.out.println("\nQuery:");
-    System.out.println(query);
+  private static void outputLineage(String query, Set<ColumnLineage> lineageEntries, Boolean printQuery) {
+
+    if (printQuery) {
+      System.out.println("\nQuery:");
+      System.out.println(query);
+    }
+
     System.out.println("\nLineage:");
     
     File file = new File("columns.txt");
@@ -100,7 +108,7 @@ public class ExtractColumnLevelLineage {
     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
     System.out.println("Extracted column lineage from CREATE TABLE AS SELECT");
-    outputLineage(query, lineageEntries);
+    outputLineage(query, lineageEntries , true);
   }
 
   private static void lineageForInsertStatement(
@@ -124,7 +132,7 @@ public class ExtractColumnLevelLineage {
     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
     System.out.println("Extracted column lineage from INSERT");
-    outputLineage(query, lineageEntries);
+    outputLineage(query, lineageEntries, true);
   }
 
   private static void lineageForUpdateStatement(
@@ -141,7 +149,7 @@ public class ExtractColumnLevelLineage {
     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
     System.out.println("Extracted column lineage from UPDATE");
-    outputLineage(query, lineageEntries);
+    outputLineage(query, lineageEntries, true);
   }
 
   private static void lineageForMergeStatement(
@@ -156,21 +164,56 @@ public class ExtractColumnLevelLineage {
 
     Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
 
-    ResolvedStatement statement = statementIterator.next().getResolvedStatement().get();
+    while (statementIterator.hasNext()) {
+      AnalyzedStatement analyzedStatement = statementIterator.next();
 
-    Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+      if (analyzedStatement.getResolvedStatement().isPresent()) {
 
-    System.out.println("Extracted column lineage from MERGE");
-    outputLineage(query, lineageEntries);
+        ResolvedStatement statement = analyzedStatement.getResolvedStatement().get();
+
+        Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+
+        System.out.println("Extracted column lineage from statement");
+        outputLineage(query, lineageEntries , true);
+      }
+    }
   }
 
   private static void lineageForCustomStatement(BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer, String query) {
-    Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
-    ResolvedStatement statement = statementIterator.next().getResolvedStatement().get();
 
-    Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
-    System.out.println("Extracted lineage");
-    outputLineage(query, lineageEntries);
+    Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
+
+    while (statementIterator.hasNext()) {
+      AnalyzedStatement analyzedStatement = statementIterator.next();
+
+      if (analyzedStatement.getResolvedStatement().isPresent()) {
+
+        ResolvedNodes.ResolvedCreateTableAsSelectStmt statement = (ResolvedNodes.ResolvedCreateTableAsSelectStmt)analyzedStatement.getResolvedStatement().get();
+
+        ImmutableList<ResolvedNodes.ResolvedWithEntry> withEntryList = ((ResolvedNodes.ResolvedWithScan) statement.getQuery()).getWithEntryList();
+
+        Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+
+        Iterator<ResolvedNodes.ResolvedWithEntry> withEntryListIterator = withEntryList.iterator();
+
+        while (withEntryListIterator.hasNext()) {
+
+          ImmutableList<ResolvedColumn> resolvedColumns = withEntryListIterator.next().getWithSubquery().getColumnList();
+          ArrayList<ColumnEntity> columnEntities = new ArrayList<>(5);
+
+          resolvedColumns.forEach(ff -> columnEntities.add(ColumnEntity.forResolvedColumn(ff)));
+
+        }
+
+        System.out.println("Extracted column lineage from statement");
+        outputLineage(query, lineageEntries, false);
+      }
+    }
+//    ResolvedStatement statement = statementIterator.next().getResolvedStatement().get();
+//
+//    Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+//    System.out.println("Extracted lineage");
+//    outputLineage(query, lineageEntries);
 
   }
 
