@@ -10,7 +10,13 @@ public class GetViewQuery {
 
     public static String getQuery(TableDefinition tdef) {
         String query = tdef.toString();
-        query = query.substring(query.indexOf("query="), query.indexOf(";"));
+        if (query.indexOf(";") == -1) {
+            query = query.substring(query.indexOf("query="), query.indexOf(", userDefinedFunctionsImmut="));
+        } else {
+            query = query.substring(query.indexOf("query="), query.indexOf(";"));
+        }
+        
+        
         return query;
     }
 
@@ -25,7 +31,7 @@ public class GetViewQuery {
         if (table.getDefinition().getType().toString().trim().equals("VIEW")) {
             TableDefinition viewDefinition = table.getDefinition();
             viewQuery = getQuery(viewDefinition); 
-            viewQuery = viewQuery.replace("query=", "CREATE TABLE `" + projectId + "." +  datasetId + "." + viewId + "` AS (");
+            viewQuery = viewQuery.replace("query=", "CREATE TABLE `" + projectId + ".javaapi_ds." + viewId + "` AS (");
             viewQuery = viewQuery + ");";
         }
 
