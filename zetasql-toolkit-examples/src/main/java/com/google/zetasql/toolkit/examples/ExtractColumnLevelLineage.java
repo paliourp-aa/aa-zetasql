@@ -36,6 +36,7 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -76,12 +77,18 @@ public class ExtractColumnLevelLineage {
       
       for (ColumnEntity parent : lineage.parents) {
         System.out.printf("\t\t<- %s.%s\n", parent.table, parent.name);
-        /* 
-        if (parent.table == "$union_all") {
-            
+        String[] parts = parent.table.split("\\.");
+        String nextQuery = GetViewQuery.getCreateTableStatement(parts[0], parts[1], parts[2]);
+        File f = new File("next_query.txt");
+
+        try {
+          FileWriter fw = new FileWriter(f, false);
+          fw.write(nextQuery);
+          fw.close();
+        } catch (IOException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
         }
-        */
-        
       }
     });
     System.out.println();
@@ -174,7 +181,7 @@ public class ExtractColumnLevelLineage {
         Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
         System.out.println("Extracted column lineage from statement");
-        outputLineage(query, lineageEntries , true);
+        outputLineage(query, lineageEntries , false);
       }
     }
   }
@@ -183,42 +190,54 @@ public class ExtractColumnLevelLineage {
 
     Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
 
+    // while (statementIterator.hasNext()) {
+    //   AnalyzedStatement analyzedStatement = statementIterator.next();
+
+    //   if (analyzedStatement.getResolvedStatement().isPresent()) {
+
+    //     ResolvedNodes.ResolvedCreateTableAsSelectStmt statement = (ResolvedNodes.ResolvedCreateTableAsSelectStmt)analyzedStatement.getResolvedStatement().get();
+
+    //     ImmutableList<ResolvedNodes.ResolvedWithEntry> withEntryList = ((ResolvedNodes.ResolvedWithScan) statement.getQuery()).getWithEntryList();
+
+    //     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+
+    //     Iterator<ResolvedNodes.ResolvedWithEntry> withEntryListIterator = withEntryList.iterator();
+
+    //     while (withEntryListIterator.hasNext()) {
+
+    //       ImmutableList<ResolvedColumn> resolvedColumns = withEntryListIterator.next().getWithSubquery().getColumnList();
+    //       ArrayList<ColumnEntity> columnEntities = new ArrayList<>(5);
+
+    //       resolvedColumns.forEach(ff -> columnEntities.add(ColumnEntity.forResolvedColumn(ff)));
+
+    //     }
+
+    //     System.out.println("Extracted column lineage from statement");
+    //     outputLineage(query, lineageEntries, false);
+    //   }
+    // }
+
     while (statementIterator.hasNext()) {
       AnalyzedStatement analyzedStatement = statementIterator.next();
 
       if (analyzedStatement.getResolvedStatement().isPresent()) {
-
-        ResolvedNodes.ResolvedCreateTableAsSelectStmt statement = (ResolvedNodes.ResolvedCreateTableAsSelectStmt)analyzedStatement.getResolvedStatement().get();
-
-        ImmutableList<ResolvedNodes.ResolvedWithEntry> withEntryList = ((ResolvedNodes.ResolvedWithScan) statement.getQuery()).getWithEntryList();
+        ResolvedStatement statement = analyzedStatement.getResolvedStatement().get();
 
         Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
-
-        Iterator<ResolvedNodes.ResolvedWithEntry> withEntryListIterator = withEntryList.iterator();
-
-        while (withEntryListIterator.hasNext()) {
-
-          ImmutableList<ResolvedColumn> resolvedColumns = withEntryListIterator.next().getWithSubquery().getColumnList();
-          ArrayList<ColumnEntity> columnEntities = new ArrayList<>(5);
-
-          resolvedColumns.forEach(ff -> columnEntities.add(ColumnEntity.forResolvedColumn(ff)));
-
-        }
-
-        System.out.println("Extracted column lineage from statement");
+        
+        System.out.println("Extracted lineage");
         outputLineage(query, lineageEntries, false);
       }
     }
-//    ResolvedStatement statement = statementIterator.next().getResolvedStatement().get();
-//
-//    Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
-//    System.out.println("Extracted lineage");
-//    outputLineage(query, lineageEntries);
+   
 
   }
 
   public static void main(String[] args) {
     String projectId = "financialreporting-223818";
+    String datasetId = "Profitability";
+    String viewId = "v_actual_work_2_revenue";
+
     BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI(projectId);
     List<String> project_tables = ListAllTables.listAllProjectTables(projectId);
     catalog.addTables(project_tables);
@@ -233,14 +252,19 @@ public class ExtractColumnLevelLineage {
 
     ZetaSQLToolkitAnalyzer analyzer = new ZetaSQLToolkitAnalyzer(options);
 
-    Path fp = Path.of("resources/income_expenses_2.txt");
+    
     String query = "";
+    // Query from text file
+    Path fp = Path.of("resources/test.txt");
     try {
       query = Files.readString(fp);
     } catch (IOException e) {
       e.printStackTrace();
     }
 
+    // Query from BQ view
+    // query = GetViewQuery.getCreateTableStatement(projectId, datasetId, viewId);
+    
     lineageForCustomStatement(catalog, analyzer, query);
 
     // lineageForCreateTableAsSelectStatement(catalog, analyzer);

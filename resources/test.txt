@@ -1,0 +1,50 @@
+CREATE TABLE `financialreporting-223818.javaapi_ds.temp_table` AS (
+select ap.email , ap.id , ap.employee_name ,  ap.payroll_year , ap.payroll_month ,
+ap.engagement_name, 
+DATE(ap.payroll_year,ap.payroll_month ,1) as issue_date, 
+DATE(ap.payroll_year,ap.payroll_month ,1) as effecive_date, 
+case 
+  when ap.engagement_name like '%Admin%' 
+  or ap.engagement_name like '%Management%' 
+  or ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') 
+  or ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP') 
+    then 'Non-Billable' 
+  else "Billable" end as TransactionType, 
+case when ap.engagement_name like '%Admin%' 
+  or ap.engagement_name like '%Management%' 
+  or ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') 
+  or ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP')
+     then 'Total Expenses' 
+  else 'Total Cost of revenue' end as category, 
+case when ap.engagement_name like '%Admin%' 
+  or ap.engagement_name like '%Management%' 
+  or ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') 
+  or ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP')
+    then 'OpEx' 
+  else 'Cost of revenue' end as subcategory0, 
+case when ap.engagement_name like '%Admin%' then 'Supporting functions cost' 
+     when ap.engagement_name like '%Management%'  then 'Management remuneration' 
+     when ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') then 'R&D'
+     when ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP') then 'SW tools'
+  else 'Salaries' end as subcategory1, 
+case when ap.engagement_name like '%Admin%' then 'Office' 
+    when ap.engagement_name like '%Management%'  then 'Mgt salaries' 
+    when ap.engagement_name in ('Next.dot','Agile Actors Hellas-Next.dot-AAH','Next dot') then 'Next.dot'
+    when ap.engagement_name in ('Agile Actors Hellas-Internal Services ERP-AAH','Internal Services_ERP') then 'ERP'
+  else 'All Salaries' end as subcategory2,
+"" as category_owner,
+""  as TransactionTagName, 
+"Expense"  as t_Expense_or_Income, 
+"" as DocumentNo,"" as TransactionDescription,
+ap.entity as Issuer, ""  as Receiver, ap.entity  as Owner, 
+""  as ParticipatingEntityName,
+(- CAST(ap.total_cost AS FLOAT64))  as net_invoice, 
+CASE WHEN ap.work_percentage is null THEN 1 ELSE ap.work_percentage END as work_percentage, 
+CASE WHEN  ap.work_percentage is null THEN ap.total_cost ELSE (ap.total_cost * ap.work_percentage ) END  as total_cost_percentage,
+(- CAST(ap.total_cost AS FLOAT64) * ap.work_percentage) as normalized_trans_value , 
+0 as normalized_vat_value,
+(- CAST(ap.total_cost AS FLOAT64) * ap.work_percentage) as normalized_total_cost_value, project_duration/8 as total_working_days,
+null as pending_transaction
+from `financialreporting-223818.reporting_model.payroll_gross_split_engagement` ap 
+)
+;
