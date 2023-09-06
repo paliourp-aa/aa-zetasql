@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Set;
 
 public class ExtractColumnLevelLineage {
-  private static void outputLineage(String query, Set<ColumnLineage> lineageEntries, Boolean printQuery) {
+  private static void outputLineage(String query, Set<ColumnLineage> lineageEntries, Boolean printQuery, BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer) {
 
     if (printQuery) {
       System.out.println("\nQuery:");
@@ -61,6 +61,8 @@ public class ExtractColumnLevelLineage {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
+
+    List<String> prev_parents = new ArrayList<>();
     
     lineageEntries.forEach(lineage -> {
       System.out.printf("%s.%s\n", lineage.target.table, lineage.target.name);
@@ -74,21 +76,30 @@ public class ExtractColumnLevelLineage {
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
+
+      
       
       for (ColumnEntity parent : lineage.parents) {
         System.out.printf("\t\t<- %s.%s\n", parent.table, parent.name);
-        String[] parts = parent.table.split("\\.");
-        String nextQuery = GetViewQuery.getCreateTableStatement(parts[0], parts[1], parts[2]);
-        File f = new File("next_query.txt");
+        if (!prev_parents.contains(parent.table.trim()) && !parent.table.equals("") && !parent.table.contains("$union_all")) {
+          String[] parts = parent.table.split("\\.");
+          String nextQuery = GetViewQuery.getCreateTableStatement(parts[0], parts[1], parts[2]);
+          lineageForCustomStatement(catalog, analyzer, nextQuery);
 
-        try {
-          FileWriter fw = new FileWriter(f, false);
-          fw.write(nextQuery);
-          fw.close();
-        } catch (IOException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          File f = new File(parts[2] + ".txt");
+
+          try {
+            FileWriter fw = new FileWriter(f, false);
+            fw.write(nextQuery);
+            fw.close();
+          } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+          }
+          prev_parents.add(parent.table.trim());
         }
+        
+        
       }
     });
     System.out.println();
@@ -115,7 +126,7 @@ public class ExtractColumnLevelLineage {
     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
     System.out.println("Extracted column lineage from CREATE TABLE AS SELECT");
-    outputLineage(query, lineageEntries , true);
+    outputLineage(query, lineageEntries , true, catalog, analyzer);
   }
 
   private static void lineageForInsertStatement(
@@ -139,7 +150,7 @@ public class ExtractColumnLevelLineage {
     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
     System.out.println("Extracted column lineage from INSERT");
-    outputLineage(query, lineageEntries, true);
+    outputLineage(query, lineageEntries, true, catalog, analyzer);
   }
 
   private static void lineageForUpdateStatement(
@@ -156,7 +167,7 @@ public class ExtractColumnLevelLineage {
     Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
     System.out.println("Extracted column lineage from UPDATE");
-    outputLineage(query, lineageEntries, true);
+    outputLineage(query, lineageEntries, true, catalog, analyzer);
   }
 
   private static void lineageForMergeStatement(
@@ -181,7 +192,7 @@ public class ExtractColumnLevelLineage {
         Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
         System.out.println("Extracted column lineage from statement");
-        outputLineage(query, lineageEntries , false);
+        outputLineage(query, lineageEntries, true, catalog, analyzer);
       }
     }
   }
@@ -226,7 +237,7 @@ public class ExtractColumnLevelLineage {
         Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
         
         System.out.println("Extracted lineage");
-        outputLineage(query, lineageEntries, false);
+        outputLineage(query, lineageEntries, false, catalog, analyzer);
       }
     }
    
