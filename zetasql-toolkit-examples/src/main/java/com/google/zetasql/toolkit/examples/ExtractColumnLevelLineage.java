@@ -20,12 +20,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.zetasql.AnalyzerOptions;
 import com.google.zetasql.resolvedast.ResolvedColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedOutputColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import com.google.zetasql.toolkit.AnalyzedStatement;
 import com.google.zetasql.toolkit.ZetaSQLToolkitAnalyzer;
 import com.google.zetasql.toolkit.catalog.bigquery.BigQueryCatalog;
 import com.google.zetasql.toolkit.options.BigQueryLanguageOptions;
 import com.google.zetasql.toolkit.tools.lineage.ColumnLineageExtractor;
+
+import autovalue.shaded.kotlinx.metadata.Flag;
+
 import com.google.zetasql.toolkit.tools.lineage.ColumnEntity;
 import com.google.zetasql.toolkit.tools.lineage.ColumnLineage;
 
@@ -40,6 +44,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ExtractColumnLevelLineage {
   private static void outputLineage(String query, Set<ColumnLineage> lineageEntries, Boolean printQuery, BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer) {
@@ -84,7 +90,7 @@ public class ExtractColumnLevelLineage {
         if (!prev_parents.contains(parent.table.trim()) && !parent.table.equals("") && !parent.table.contains("$union_all")) {
           String[] parts = parent.table.split("\\.");
           String nextQuery = GetViewQuery.getCreateTableStatement(parts[0], parts[1], parts[2]);
-          lineageForCustomStatement(catalog, analyzer, nextQuery);
+          lineageForCustomStatement(catalog, analyzer, nextQuery, parts[2]);
 
           File f = new File(parts[2] + ".txt");
 
@@ -197,9 +203,38 @@ public class ExtractColumnLevelLineage {
     }
   }
 
-  private static void lineageForCustomStatement(BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer, String query) {
+  private static void lineageForCustomStatement(BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer, String query, String viewId) {
+    String edited_query = "";
+    if (query.toLowerCase().contains("union all")) {
+      System.out.println("This query is the result of the union and join of the tables:");
 
-    Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
+      String create_part = query.substring(0, query.indexOf("("));
+      String main_query_part = query.substring(query.indexOf("(") + 1, query.lastIndexOf(")"));
+
+      String[] queries = main_query_part.split("(?i)UNION ALL");
+
+      Pattern pattern = Pattern.compile("(?i)FROM\\s*`.*?`|(?i)JOIN\\s*`.*?`");
+      
+      int count = 0;
+
+      for (String queries_part: queries) {
+        edited_query = edited_query + create_part.replace(viewId, "temp"+count) + "(" + queries_part + ");\n";
+        Matcher matcher = pattern.matcher(queries_part);
+        while (matcher.find()) {
+          System.out.println("\t" + matcher.group().trim().replace("FROM ", "").replace("from ", "").replace("JOIN ", "").replace("join ", "").replace("`", ""));
+        }
+        System.out.println();
+        count++;
+      }
+
+    } else {
+      edited_query = query;
+    }
+    
+    
+    
+    //System.out.print(queries[0]);
+    Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(edited_query, catalog);
 
     // while (statementIterator.hasNext()) {
     //   AnalyzedStatement analyzedStatement = statementIterator.next();
@@ -235,6 +270,17 @@ public class ExtractColumnLevelLineage {
         ResolvedStatement statement = analyzedStatement.getResolvedStatement().get();
 
         Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
+
+        File f = new File("stmnt.txt");
+
+          try {
+            FileWriter fw = new FileWriter(f, false);
+            fw.write(statement.toString());
+            fw.close();
+          } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+          }
         
         System.out.println("Extracted lineage");
         outputLineage(query, lineageEntries, false, catalog, analyzer);
@@ -246,13 +292,13 @@ public class ExtractColumnLevelLineage {
 
   public static void main(String[] args) {
     String projectId = "financialreporting-223818";
-    String datasetId = "Profitability";
-    String viewId = "v_actual_work_2_revenue";
+    String datasetId = "reporting_model";
+    String viewId = "aa_all_payroll_mapped_3";
 
     BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI(projectId);
     List<String> project_tables = ListAllTables.listAllProjectTables(projectId);
     catalog.addTables(project_tables);
-
+    
     // catalog.addTables(List.of(
     //     "bigquery-public-data.samples.wikipedia",
     //     "bigquery-public-data.samples.shakespeare"
@@ -266,17 +312,17 @@ public class ExtractColumnLevelLineage {
     
     String query = "";
     // Query from text file
-    Path fp = Path.of("resources/test.txt");
-    try {
-      query = Files.readString(fp);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+    // Path fp = Path.of("resources/income_expenses_2.txt");
+    // try {
+    //   query = Files.readString(fp);
+    // } catch (IOException e) {
+    //   e.printStackTrace();
+    // }
 
     // Query from BQ view
-    // query = GetViewQuery.getCreateTableStatement(projectId, datasetId, viewId);
+    query = GetViewQuery.getCreateTableStatement(projectId, datasetId, viewId);
     
-    lineageForCustomStatement(catalog, analyzer, query);
+    lineageForCustomStatement(catalog, analyzer, query, viewId);
 
     // lineageForCreateTableAsSelectStatement(catalog, analyzer);
     // System.out.println("-----------------------------------");
