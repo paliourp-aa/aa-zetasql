@@ -16,6 +16,7 @@
 
 package com.google.zetasql.toolkit.examples;
 
+import com.google.api.client.util.IOUtils;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Table;
@@ -31,7 +32,9 @@ import com.google.zetasql.toolkit.tools.lineage.ColumnLineageExtractor;
 import com.google.zetasql.toolkit.tools.lineage.ColumnEntity;
 import com.google.zetasql.toolkit.tools.lineage.ColumnLineage;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -142,7 +145,7 @@ public class ExtractLineage {
             String table_type = getType(parts[0], parts[1], parts[2]);
             writeToFile(tables_file, "\t" + table_name + " " + table_type + "\n", true);
         }
-        
+
         System.out.println("You can see the tables at: " + path + "/tables.txt");
     
         Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
@@ -157,6 +160,32 @@ public class ExtractLineage {
 
                 System.out.println("Extracting column lineage...");
                 outputLineage(query, lineageEntries, false, catalog, analyzer, path);
+
+                // Read line from file
+                BufferedReader reader;
+                try {
+                    reader = new BufferedReader(new FileReader(path + "/tables.txt"));
+                    String line = reader.readLine();
+                    while (line != null) {
+                        System.out.println(line);
+                        if (line.contains("[VIEW]") && line.contains("\t")) {
+                            line = line.replace("[VIEW]", "");
+                            String[] nextQuery_parts = line.trim().split("\\.");
+                            // Next query 
+                            String nextQuery = GetViewQuery.getCreateTableStatement(nextQuery_parts[0], nextQuery_parts[1], nextQuery_parts[2]);
+                            // Calling get lineage for next query 
+                            getLineage(catalog, analyzer, nextQuery, nextQuery_parts[0], nextQuery_parts[1], nextQuery_parts[2]);
+                            
+                        }
+                        // Reading next line
+                        line = reader.readLine();
+                        
+                    }
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
             }
         }
 
