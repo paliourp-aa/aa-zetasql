@@ -117,24 +117,25 @@ public class ExtractLineage {
         }
     }
 
-    private static void getLineage(BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer, String query, String projectId, String datasetId, String viewId) {
+    private static void getLineage(BigQueryCatalog catalog, ZetaSQLToolkitAnalyzer analyzer, String query, String projectId, String datasetId, String viewId, String parentQuery) {
     
         // Make file directory for query
-        String path = "analyzed_queries/" + projectId + "." + datasetId + "." + viewId;
-        File dir = new File(path);
+        String path = parentQuery + projectId + "." + datasetId + "." + viewId;
+        String full_path = "analyzed_queries/" + path;
+        File dir = new File(full_path);
         if (!dir.exists()) {
             dir.mkdirs();
         }
     
         // File to save related tables to query
-        File tables_file = new File(path + "/tables.txt");
+        File tables_file = new File(full_path + "/tables.txt");
 
         String type = getType(projectId, datasetId, viewId);    
 
         // Writing original table/ view name to file
         writeToFile(tables_file, projectId + "." + datasetId + "." + viewId + " " + type + "\n", false);
 
-        System.out.println("Getting tables related to query...");
+        System.out.println("\n\nGetting tables related to query...");
 
         Pattern pattern = Pattern.compile("(?i)FROM\\s*`.*?`|(?i)JOIN\\s*`.*?`");
 
@@ -146,7 +147,7 @@ public class ExtractLineage {
             writeToFile(tables_file, "\t" + table_name + " " + table_type + "\n", true);
         }
 
-        System.out.println("You can see the tables at: " + path + "/tables.txt");
+        System.out.println("You can see the tables at: " + full_path + "/tables.txt");
     
         Iterator<AnalyzedStatement> statementIterator = analyzer.analyzeStatements(query, catalog);
 
@@ -158,23 +159,22 @@ public class ExtractLineage {
 
                 Set<ColumnLineage> lineageEntries = ColumnLineageExtractor.extractColumnLevelLineage(statement);
 
-                System.out.println("Extracting column lineage...");
-                outputLineage(query, lineageEntries, false, catalog, analyzer, path);
+                System.out.println("\n\nExtracting column lineage for: " + projectId + "." + datasetId + "." + viewId);
+                outputLineage(query, lineageEntries, false, catalog, analyzer, full_path);
 
                 // Read line from file
                 BufferedReader reader;
                 try {
-                    reader = new BufferedReader(new FileReader(path + "/tables.txt"));
+                    reader = new BufferedReader(new FileReader(full_path + "/tables.txt"));
                     String line = reader.readLine();
                     while (line != null) {
-                        System.out.println(line);
                         if (line.contains("[VIEW]") && line.contains("\t")) {
                             line = line.replace("[VIEW]", "");
                             String[] nextQuery_parts = line.trim().split("\\.");
                             // Next query 
                             String nextQuery = GetViewQuery.getCreateTableStatement(nextQuery_parts[0], nextQuery_parts[1], nextQuery_parts[2]);
                             // Calling get lineage for next query 
-                            getLineage(catalog, analyzer, nextQuery, nextQuery_parts[0], nextQuery_parts[1], nextQuery_parts[2]);
+                            getLineage(catalog, analyzer, nextQuery, nextQuery_parts[0], nextQuery_parts[1], nextQuery_parts[2], path + "/");
                             
                         }
                         // Reading next line
@@ -219,7 +219,7 @@ public class ExtractLineage {
         // Query from BQ view
         query = GetViewQuery.getCreateTableStatement(projectId, datasetId, viewId);
 
-        getLineage(catalog, analyzer, query, projectId, datasetId, viewId);
+        getLineage(catalog, analyzer, query, projectId, datasetId, viewId, "");
 
     }
 
