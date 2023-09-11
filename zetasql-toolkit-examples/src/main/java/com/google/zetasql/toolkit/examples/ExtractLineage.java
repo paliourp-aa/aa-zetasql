@@ -141,7 +141,7 @@ public class ExtractLineage {
 
         Matcher matcher = pattern.matcher(query);
         while (matcher.find()) {
-            String table_name = matcher.group().trim().replace("FROM ", "").replace("from ", "").replace("JOIN ", "").replace("join ", "").replace("`", "");
+            String table_name = matcher.group().trim().replaceAll("\\s+", "").replace("FROM", "").replace("from", "").replace("JOIN", "").replace("join", "").replace("`", "");
             String parts[] = table_name.split("\\.");
             String table_type = getType(parts[0], parts[1], parts[2]);
             writeToFile(tables_file, "\t" + table_name + " " + table_type + "\n", true);
@@ -194,7 +194,7 @@ public class ExtractLineage {
     public static void main(String[] args) {
         String projectId = "financialreporting-223818";
         String datasetId = "reporting_model";
-        String viewId = "aa_all_payroll_mapped_3";
+        String viewId = "payroll_gross_split_engagement";
 
         BigQueryCatalog catalog = BigQueryCatalog.usingBigQueryAPI(projectId);
         List<String> project_tables = ListAllTables.listAllProjectTables(projectId);
