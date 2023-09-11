@@ -139,12 +139,18 @@ public class ExtractLineage {
 
         Pattern pattern = Pattern.compile("(?i)FROM\\s*`.*?`|(?i)JOIN\\s*`.*?`");
 
+        List<String> tables_in_file = new ArrayList<>();
+
         Matcher matcher = pattern.matcher(query);
         while (matcher.find()) {
             String table_name = matcher.group().trim().replaceAll("\\s+", "").replace("FROM", "").replace("from", "").replace("JOIN", "").replace("join", "").replace("`", "");
             String parts[] = table_name.split("\\.");
             String table_type = getType(parts[0], parts[1], parts[2]);
-            writeToFile(tables_file, "\t" + table_name + " " + table_type + "\n", true);
+            if (!tables_in_file.contains(table_name)) {
+                writeToFile(tables_file, "\t" + table_name + " " + table_type + "\n", true);
+                tables_in_file.add(table_name);
+            }
+            
         }
 
         System.out.println("You can see the tables at: " + full_path + "/tables.txt");
